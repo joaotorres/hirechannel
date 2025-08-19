@@ -1,179 +1,80 @@
-# Hirechannel Technical Assessment
+## Hirechannel Video Interview – React + Rails
 
-Welcome to the Hirechannel technical assessment! This challenge is designed to evaluate your fullstack development skills, with a focus on video handling and system integration capabilities.
+### Overview
+This project is a simplified video interview system:
+- React frontend lets candidates record answers (camera/mic permissions, start/stop, 60s countdown auto-stop) and uploads videos.
+- Ruby on Rails API receives uploads, stores them via Active Storage, and enqueues background jobs.
+- Sidekiq processes each answer asynchronously: extracts audio (ffmpeg), transcribes with OpenAI Whisper, evaluates with an LLM, and stores the transcript and a score (1–5).
 
-Should you have any doubts, feedback or questions, please don't hesitate to contact alvaro@hirechannel.com.
+A simple Answers page lists submissions with time, question id, status, transcript, and score.
 
-Please, read the whole document before starting the assessment.
+### Key Design Decisions
+- **Async processing (Sidekiq + Redis)**: keeps uploads fast and resilient; transcription/evaluation run outside the request.
+- **Active Storage (local)**: minimal storage for uploaded videos; easy to swap providers later.
+- **OpenAI integration**: Whisper for transcription; `gpt-4o-mini` for evaluation. Prompt returns a single integer 1–5.
+- **ffmpeg extraction**: Converts webm video to 16kHz mono WAV to ensure robust transcription.
+- **CORS**: Frontend dev server (`http://localhost:5173`) allowed by API.
+- **SQLite**: lightweight DB for local/dev simplicity.
 
-## ⚠️ Disclaimer
-- This is a paid assessment with a compensation of a 300€ Amazon gift card to be sent after the assessment is submitted
-- This technical assessment is solely for evaluation purposes
-- Participation does not imply or guarantee any employment relationship
-- The results of this assessment will not be used internally.
-- The results will not be used for any other purposes under any circumstances
+### Requirements
+- macOS or Linux
+- Node.js 22.12+ (or 20.19+), npm
+- Ruby 3.3.x, Bundler, Rails 8
+- Redis
+- ffmpeg
+- OpenAI API key
 
-After reading the document and prior to starting the assessment, you must send an email to alvaro@hirechannel.com confirming your acceptance of the terms above:
+### Setup
+1) Clone and install dependencies
+```bash
+cd /Users/joaotorres/Projects/hirechannel
 
+# Frontend
+cd frontend && npm install && cd ..
+
+# Backend
+cd backend && bundle install && bin/rails db:migrate && cd ..
 ```
-Subject: Hirechannel Technical Assessment Acceptance
 
-Hello,
-
-I accept the terms and conditions of the Hirechannel technical assessment.
-
-The terms and conditions are:
-
-- This is a paid assessment with a compensation of a 300€ Amazon gift card to be sent after the assessment is submitted
-- This technical assessment is solely for evaluation purposes
-- Participation does not imply or guarantee any employment relationship
-- The results of this assessment will not be used internally by Hirechannel
-- The results will not be used for any other purposes under any circumstances
-
-Best regards,
-
-[Your Name]
+2) Configure environment
+```bash
+# Backend .env (create backend/.env)
+OPENAI_API_KEY=sk-...
+REDIS_URL=redis://localhost:6379/0
 ```
 
-## Table of Contents
-- [Objective](#-objective)
-- [Key Requirements](#-key-requirements)
-  - [Frontend](#frontend-estimated-15-2h)
-  - [Backend](#backend-estimated-15-2h)
-- [Technical Guidelines](#-technical-guidelines)
-- [Simplifications](#simplifications)
-- [Bonus Features (Optional)](#-bonus-features-optional)
-- [Submission Requirements](#-submission-requirements)
-- [Time Expectation](#️-time-expectation)
-- [Evaluation Criteria](#-evaluation-criteria)
-- [Getting Started](#-getting-started)
-- [Notes](#-notes)
+3) Start services
+```bash
+# Redis
+redis-server --daemonize yes
 
-## 🎯 Objective
+# Sidekiq (from backend/)
+cd backend && bundle exec sidekiq -C config/sidekiq.yml &
 
-Build a simplified version of a video interview system where candidates can record their answers to a predefined question, and the system processes and evaluates the recording automatically using AI.
+# Rails API (from backend/)
+bin/rails s -p 3000 &
 
-## 🔑 Key Requirements
+# Frontend (from frontend/)
+cd ../frontend && npm run dev
+```
 
-### Frontend
-- Build a single-page application using React.
-- Feel free to use any libraries you want.
-- Allow candidates to record video answers (max 60 seconds) for up to 5 questions of your choice. Some examples could be: 
-**“Tell us about yourself”**
-**“What’s your greatest achievement?”**
-**“Where do you see yourself in 5 years?”**
-**“Why do you want to work with us?”** 
-**“How do you handle working under pressure?”**
+Notes:
+- Ensure ffmpeg is installed (e.g., `brew install ffmpeg`).
+- If Sidekiq cannot see `OPENAI_API_KEY`, it’s loaded via dotenv in `config/initializers/sidekiq.rb` for development.
 
-- Essential features:
-  - Camera/microphone permission handling.
-  - Start/stop recording controls.
-  - A clean, simple UI (no authentication required).
-  - A timer: once the candidate starts recording, the timer should start. Once the timer reaches 0, the recording should stop and go to the next question.
+### Usage
+- Visit `http://localhost:5173` to record answers (up to 5). Recording auto-stops at 60s and uploads.
+- View submissions at `http://localhost:5173/answers`.
 
-### Backend
-Build a Node.js backend with a key integration to process the recording:
-- **AI Evaluation System**
-   - Transcribe the recorded video using a Speech-to-Text API.
-   - Send the transcription to an LLM to evaluate the candidate's answer.
-   - Retrieve an evaluation score (from 1 to 5) for the candidate's answer. You don't need to display the score in the frontend. Just print it to the console in the server. The evaluation criteria is up to you.
-   - Process these steps independently and asynchronously from the main recording flow.
-   - As part of your solution, please include the exact prompt you used to evaluate the candidate's answer using the LLM
+### API Summary
+- `POST /api/answers` (multipart): fields `video` (file), `questionId` (string). Returns `202 { id }`.
+- `GET /api/answers`: list answers with `id, question_id, status, transcript, score, created_at`.
+- `GET /api/answers/:id`: show one.
 
-Note: We will provide an OpenAI API key for you to use in this assessment.
-
-The solution must be extensible and loosely coupled with the answer submission flow.
-
-## 💡 Technical Guidelines
-
-- **Architecture**: Use Node.js for the backend. Design your solution for easy extensibility.
-- **Async Processing**: Keep the main flow responsive while processing
-- **Browser Handling**: 
-  - Focus on compatibility with the latest versions of Chrome or any Chromium-based browser.
-
-## Simplifications
-
-To help you complete the challenge within the time limit, **you do not need** to implement:
-- Authentication
-- A persistent database (in-memory storage is sufficient)
-- Complex UI designs
-- User accounts or job position management
-- Testing
-- Complex error recovery (basic error messages are sufficient)
-- Perfect code organization (focus on functionality first)
-
-## 🎁 Bonus Features (Optional)
-
-If you finish early, feel free to:
-- add additional fun integrations or creative features. Anything you want!
-
-Note: Only attempt these if you've completed all core requirements with time to spare.
-
-## 📝 Submission Requirements
-
-### Code Repository
-- Please create a new repository using this repository as a template (click "Use this template" button) and add GitHub users `monterrubio12` and `Couds` as a collaborators.
-
-### Screen Recording
-Record your screen **only during the first 2 hours** of assessment-related tasks, including:
-- Your implementation process
-- Any searches or documentation lookups, usage of resources, tools, or AI assistants (we encourage using these tools to be more productive!)
-- Problem-solving activities related to this challenge
-
-This recording helps us:
-- Understand your workflow and problem-solving approach
-- Validate the authenticity of your work
-- Gain insight into your coding practices
-
-*Note: Please only record activities directly related to this assessment. Make sure the recording quality is clear and readable. You can use any screen recording software you prefer.*
+### Future Improvements
+- Persist job results to an external store and add pagination/filtering on the Answers page.
+- Upload directly to cloud storage; presigned URLs.
+- Add retries/backoff and better error UI.
+- Add tests and CI.
 
 
-## ⏱️ Time Expectation
-
-Approximately 4-5 hours.
-
-### 🚨 Important Note
-
-When you reach the 2 hours mark, please:
-1. Stop recording your screen.
-2. Record a brief video recording summarizing and providing context about what you did. Feel free to give any feedback or suggestions for the assessment.
-3. Before continuing, send an email to alvaro@hirechannel.com letting us know you're done with the first 2 hours and send us the video recording of the first 2 hours and the summary video.
-4. After that, you will have 24 hours to complete the assessment. No recording is needed for this step.
-5. Once you're done, we will review your submission and get back to you for a follow-up video call.
-
-**We value your time** and want to understand your thought process, even if not all features are completed. The follow-up discussion will give us insight into your problem-solving approach and technical vision for the complete solution. Your feedback on the time estimation will help us improve our assessment process.
-
-
-## 🔍 Evaluation Criteria
-
-| Area          | Key Points                                                       |
-|---------------|------------------------------------------------------------------|
-| **Frontend**  | Clean UI; robust media handling; effective error feedback        |
-| **Backend**   | Thoughtful system design; well-implemented integrations            |
-| **Code Quality** | Clean, maintainable, well-documented code                     |
-| **Problem Solving** | Sound architecture decisions     |
-
-## 🚀 Getting Started
-
-1. Create your own private repository using this repository as a template:
-   - Click the green "Use this template" button at the top of this page
-   - Select "Create a new repository"
-   - Make sure to set it as "Private"
-   - Create your repository
-2. Add GitHub users `monterrubio12` and `Couds`as a collaborator to your new repository:
-   - Go to Settings > Collaborators
-   - Click "Add people"
-   - Enter `monterrubio12`
-   - Select "Add to repository"
-   - Repeat for the rest of users
-3. Implement the required features based on the guidelines above.
-4. Submit your solution.
-
-## 📋 Notes
-
-- You may use any AI tools (ChatGPT, GitHub Copilot, etc.). Use anything that makes you more productive.
-- Focus on building a functional solution over a pixel-perfect UI.
-- If you have any questions, feel free to ask.
-- Don't worry about perfect code organization—we value working functionality over perfect architecture.
-
-**Good luck!** 🎉
