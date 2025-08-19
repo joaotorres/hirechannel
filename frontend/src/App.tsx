@@ -24,6 +24,7 @@ function App() {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const timerRef = useRef<number | null>(null)
+  const stopButtonRef = useRef<HTMLButtonElement | null>(null)
 
   const question = QUESTIONS[currentIndex]
 
@@ -76,7 +77,15 @@ function App() {
       timerRef.current = window.setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
-            stopRecording()
+            // Clear the interval immediately to prevent multiple calls
+            if (timerRef.current) {
+              window.clearInterval(timerRef.current)
+              timerRef.current = null
+            }
+            // Programmatically click the stop button
+            if (stopButtonRef.current) {
+              stopButtonRef.current.click()
+            }
             return 0
           }
           return prev - 1
@@ -151,7 +160,7 @@ function App() {
         {!recording ? (
           <button onClick={startRecording}>Start</button>
         ) : (
-          <button onClick={stopRecording} style={{ background: '#c0392b', color: 'white' }}>Stop</button>
+          <button ref={stopButtonRef} onClick={stopRecording} style={{ background: '#c0392b', color: 'white' }}>Stop</button>
         )}
         <div style={{ marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' }}>
           Time left: {timeLeft}s
