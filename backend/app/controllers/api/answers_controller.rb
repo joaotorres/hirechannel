@@ -1,4 +1,13 @@
 class Api::AnswersController < ApplicationController
+  def index
+    answers = Answer.order(created_at: :desc).select(:id, :question_id, :status, :score, :transcript, :created_at)
+    render json: answers
+  end
+
+  def show
+    answer = Answer.find(params[:id])
+    render json: answer
+  end
   def create
     unless params[:video].present? && params[:questionId].present?
       render json: { error: "Missing required parameters: video, questionId" }, status: :bad_request and return
