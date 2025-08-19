@@ -33,15 +33,19 @@ function App() {
     }
   }, [])
 
+  // Connect stream to video element when stream changes
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      videoRef.current.srcObject = stream
+      videoRef.current.play().catch(() => {})
+    }
+  }, [stream])
+
   const requestPermissions = async () => {
     setError(null)
     try {
       const media = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       setStream(media)
-      if (videoRef.current) {
-        videoRef.current.srcObject = media
-        videoRef.current.play().catch(() => {})
-      }
     } catch (e: any) {
       setError('Camera/Microphone permission denied or unavailable.')
     }
@@ -114,12 +118,27 @@ function App() {
     }
   }
 
+  // Initial screen until camera/mic is enabled
+  if (!stream) {
+    return (
+      <div style={{ maxWidth: 720, margin: '3rem auto', fontFamily: 'Inter, system-ui, Arial', textAlign: 'center' }}>
+        <h1 style={{ margin: 0 }}>Hirechannel: One-way Interviews</h1>
+        <p style={{ color: '#555', margin: '1rem 0 2rem' }}>
+          Welcome to Hirechannel, this is a system for one-way inteviews based on AI. You'll record video answers for 5 questions that will be analysed by AI and graded with a score of 1 to 5. Please enable your Camera & Mic to continue.
+        </p>
+        <button onClick={requestPermissions}>Enable Camera & Mic</button>
+        {error && <div style={{ marginTop: 12, color: '#c0392b' }}>{error}</div>}
+      </div>
+    )
+  }
+
+  // Recording UI after permissions granted
   return (
     <div style={{ maxWidth: 720, margin: '2rem auto', fontFamily: 'Inter, system-ui, Arial' }}>
       <h1 style={{ marginBottom: 8 }}>Video Interview</h1>
       <p style={{ color: '#555', marginTop: 0 }}>Question {currentIndex + 1} of {QUESTIONS.length}</p>
-      <div style={{ padding: 16, border: '1px solid #ddd', borderRadius: 8, marginBottom: 16 }}>
-        <p style={{ margin: 0, fontSize: 18 }}>{question.text}</p>
+      <div style={{ marginBottom: 24 }}>
+        <p style={{ margin: 0, fontSize: 20, fontWeight: 500, color: '#333', lineHeight: 1.4 }}>{question.text}</p>
       </div>
       <video ref={videoRef} playsInline muted style={{ width: '100%', background: '#000', borderRadius: 8 }} />
 
@@ -128,7 +147,7 @@ function App() {
           {stream ? 'Ready' : 'Enable Camera & Mic'}
         </button>
         {!recording ? (
-          <button onClick={startRecording} disabled={!stream}>Start</button>
+          <button onClick={startRecording}>Start</button>
         ) : (
           <button onClick={stopRecording} style={{ background: '#c0392b', color: 'white' }}>Stop</button>
         )}
