@@ -12,7 +12,15 @@ if ENV["RAILS_ENV"] == "development" || defined?(Rails) && Rails.env.development
   end
 end
 
-redis_url = ENV.fetch("REDIS_URL", "redis://localhost:6379/0")
+# Auto-detect Redis URL based on environment
+# In Docker, use the service name 'redis'
+# Locally, use 'localhost'
+redis_url = if ENV["DOCKER_ENV"] == "true"
+  ENV.fetch("REDIS_URL", "redis://redis:6379/0")
+else
+  # For local development, always use localhost regardless of what's in .env
+  "redis://localhost:6379/0"
+end
 
 Sidekiq.configure_server do |config|
   config.redis = { url: redis_url }

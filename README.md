@@ -40,8 +40,12 @@ cd backend && bundle install && bin/rails db:migrate && cd ..
 ```bash
 # Backend .env (create backend/.env)
 OPENAI_API_KEY=sk-...
-REDIS_URL=redis://localhost:6379/0
+# Redis URL is auto-detected:
+# - Local: redis://localhost:6379/0
+# - Docker: redis://redis:6379/0
 ```
+
+The configuration automatically detects whether you're running locally or in Docker and sets the appropriate Redis URL.
 
 3) Start services
 ```bash
@@ -61,6 +65,23 @@ cd ../frontend && npm run dev
 Notes:
 - Ensure ffmpeg is installed (e.g., `brew install ffmpeg`).
 - If Sidekiq cannot see `OPENAI_API_KEY`, it’s loaded via dotenv in `config/initializers/sidekiq.rb` for development.
+
+#### Option 2: Docker Setup
+For a containerized setup, see [DOCKER_SETUP.md](DOCKER_SETUP.md) for detailed instructions.
+
+Quick start with Docker:
+```bash
+# Create .env file in root directory
+echo "OPENAI_API_KEY=your_openai_api_key_here" > .env
+
+# Start all services
+docker-compose up --build
+```
+
+The application will be available at:
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:3000
+- Sidekiq Dashboard: http://localhost:3000/sidekiq
 
 ### Usage
 - Visit `http://localhost:5173` to record answers (up to 5). Recording auto-stops at 60s and uploads.

@@ -116,7 +116,8 @@ function App() {
     form.append('questionId', question.id)
 
     try {
-      const resp = await fetch('http://localhost:3000/api/answers', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+      const resp = await fetch(`${apiUrl}/api/answers`, {
         method: 'POST',
         body: form,
       })

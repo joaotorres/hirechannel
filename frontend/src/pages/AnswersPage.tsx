@@ -17,7 +17,8 @@ export default function AnswersPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('http://localhost:3000/api/answers')
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+        const res = await fetch(`${apiUrl}/api/answers`)
         if (!res.ok) throw new Error('Failed to load answers')
         const data = await res.json()
         setAnswers(data)
