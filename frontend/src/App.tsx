@@ -3,6 +3,8 @@ import './App.css'
 
 type Question = { id: string; text: string }
 
+const RECORDING_DURATION_SECONDS = 60
+
 const QUESTIONS: Question[] = [
   { id: 'q1', text: 'Tell us about yourself' },
   { id: 'q2', text: "What’s your greatest achievement?" },
@@ -16,7 +18,7 @@ function App() {
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [recorder, setRecorder] = useState<MediaRecorder | null>(null)
   const [recording, setRecording] = useState(false)
-  const [timeLeft, setTimeLeft] = useState(60)
+  const [timeLeft, setTimeLeft] = useState(RECORDING_DURATION_SECONDS)
   const [error, setError] = useState<string | null>(null)
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -69,7 +71,7 @@ function App() {
       mediaRecorder.start()
       setRecorder(mediaRecorder)
       setRecording(true)
-      setTimeLeft(60)
+      setTimeLeft(RECORDING_DURATION_SECONDS)
       if (timerRef.current) window.clearInterval(timerRef.current)
       timerRef.current = window.setInterval(() => {
         setTimeLeft(prev => {
@@ -112,7 +114,7 @@ function App() {
       if (!resp.ok) throw new Error('Upload failed')
       // Advance to next question automatically
       setCurrentIndex(prev => Math.min(prev + 1, QUESTIONS.length - 1))
-      setTimeLeft(60)
+      setTimeLeft(RECORDING_DURATION_SECONDS)
     } catch (e: any) {
       setError('Upload failed. Please try again.')
     }
