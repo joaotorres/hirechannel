@@ -1,0 +1,147 @@
+import { useEffect, useRef, useState } from 'react'
+import './App.css'
+
+type Question = { id: string; text: string }
+
+const QUESTIONS: Question[] = [
+  { id: 'q1', text: 'Tell us about yourself' },
+  { id: 'q2', text: "What’s your greatest achievement?" },
+  { id: 'q3', text: 'Where do you see yourself in 5 years?' },
+  { id: 'q4', text: 'Why do you want to work with us?' },
+  { id: 'q5', text: 'How do you handle working under pressure?' },
+]
+
+function App() {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [stream, setStream] = useState<MediaStream | null>(null)
+  const [recorder, setRecorder] = useState<MediaRecorder | null>(null)
+  const [recording, setRecording] = useState(false)
+  const [timeLeft, setTimeLeft] = useState(60)
+  const [error, setError] = useState<string | null>(null)
+
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const timerRef = useRef<number | null>(null)
+
+  const question = QUESTIONS[currentIndex]
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) window.clearInterval(timerRef.current)
+      if (recorder && recorder.state !== 'inactive') recorder.stop()
+      stream?.getTracks().forEach(t => t.stop())
+    }
+  }, [])
+
+  const requestPermissions = async () => {
+    setError(null)
+    try {
+      const media = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      setStream(media)
+      if (videoRef.current) {
+        videoRef.current.srcObject = media
+        videoRef.current.play().catch(() => {})
+      }
+    } catch (e: any) {
+      setError('Camera/Microphone permission denied or unavailable.')
+    }
+  }
+
+  const startRecording = async () => {
+    if (!stream) {
+      await requestPermissions()
+    }
+    if (!stream) return
+
+    try {
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9,opus' })
+      chunksRef.current = []
+      mediaRecorder.ondataavailable = e => {
+        if (e.data && e.data.size > 0) chunksRef.current.push(e.data)
+      }
+      mediaRecorder.onstop = () => {
+        void handleUpload()
+      }
+      mediaRecorder.start()
+      setRecorder(mediaRecorder)
+      setRecording(true)
+      setTimeLeft(60)
+      if (timerRef.current) window.clearInterval(timerRef.current)
+      timerRef.current = window.setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            stopRecording()
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    } catch (e: any) {
+      setError('Failed to start recording. Your browser may not support MediaRecorder.')
+    }
+  }
+
+  const stopRecording = () => {
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop()
+    }
+    setRecording(false)
+  }
+
+  const handleUpload = async () => {
+    const blob = new Blob(chunksRef.current, { type: 'video/webm' })
+    const file = new File([blob], 'answer.webm', { type: 'video/webm' })
+
+    const form = new FormData()
+    form.append('video', file)
+    form.append('questionId', question.id)
+
+    try {
+      const resp = await fetch('http://localhost:3000/api/answers', {
+        method: 'POST',
+        body: form,
+      })
+      if (!resp.ok) throw new Error('Upload failed')
+      // Advance to next question automatically
+      setCurrentIndex(prev => Math.min(prev + 1, QUESTIONS.length - 1))
+      setTimeLeft(60)
+    } catch (e: any) {
+      setError('Upload failed. Please try again.')
+    }
+  }
+
+  return (
+    <div style={{ maxWidth: 720, margin: '2rem auto', fontFamily: 'Inter, system-ui, Arial' }}>
+      <h1 style={{ marginBottom: 8 }}>Video Interview</h1>
+      <p style={{ color: '#555', marginTop: 0 }}>Question {currentIndex + 1} of {QUESTIONS.length}</p>
+      <div style={{ padding: 16, border: '1px solid #ddd', borderRadius: 8, marginBottom: 16 }}>
+        <p style={{ margin: 0, fontSize: 18 }}>{question.text}</p>
+      </div>
+      <video ref={videoRef} playsInline muted style={{ width: '100%', background: '#000', borderRadius: 8 }} />
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
+        <button onClick={requestPermissions} disabled={!!stream}>
+          {stream ? 'Ready' : 'Enable Camera & Mic'}
+        </button>
+        {!recording ? (
+          <button onClick={startRecording} disabled={!stream}>Start</button>
+        ) : (
+          <button onClick={stopRecording} style={{ background: '#c0392b', color: 'white' }}>Stop</button>
+        )}
+        <div style={{ marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' }}>
+          Time left: {timeLeft}s
+        </div>
+      </div>
+
+      {error && (
+        <div style={{ marginTop: 12, color: '#c0392b' }}>{error}</div>
+      )}
+    </div>
+  )
+}
+
+export default App
