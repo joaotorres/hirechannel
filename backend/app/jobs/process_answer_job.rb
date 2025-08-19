@@ -1,3 +1,5 @@
+require "shellwords"
+
 class ProcessAnswerJob < ApplicationJob
   queue_as :default
 
@@ -16,17 +18,32 @@ class ProcessAnswerJob < ApplicationJob
     downloaded.write(file.download)
     downloaded.rewind
 
-    # Transcribe using OpenAI Whisper
-    client = OpenAI::Client.new(access_token: ENV["OPENAI_API_KEY"]) 
+    # Transcribe using OpenAI (extract audio from video via ffmpeg, then send to Whisper)
     transcript_text = nil
 
     begin
-      response = client.audio.transcriptions(parameters: {
-        model: "whisper-1",
-        file: downloaded,
-        response_format: "text"
-      })
-      transcript_text = response
+      client = OpenAI::Client.new
+      input_path = Pathname.new(downloaded.path)
+      audio_io = nil
+      begin
+        # Extract mono 16kHz WAV using ffmpeg
+        tmp_wav = Tempfile.new(["audio", ".wav"]) ; tmp_wav.close
+        wav_path = tmp_wav.path
+        system_ok = system("ffmpeg -y -i #{Shellwords.escape(input_path.to_s)} -vn -ac 1 -ar 16000 -f wav #{Shellwords.escape(wav_path)} > /dev/null 2>&1")
+        raise "ffmpeg not found or failed to extract audio" unless system_ok && File.size?(wav_path)
+
+        audio_io = File.open(wav_path, "rb")
+        file_part = OpenAI::FilePart.new(audio_io, filename: "audio.wav", content_type: "audio/wav")
+        response = client.audio.transcriptions.create(
+          file: file_part,
+          model: "whisper-1",
+          response_format: :json
+        )
+        transcript_text = response.respond_to?(:text) ? response.text.to_s : response.to_s
+      ensure
+        audio_io&.close
+        File.delete(wav_path) rescue nil
+      end
     rescue => e
       Rails.logger.error("Transcription failed: #{e.message}")
       answer.update!(status: "failed")
@@ -39,11 +56,12 @@ class ProcessAnswerJob < ApplicationJob
 
     # Evaluate with GPT to get a score 1-5
     begin
-      eval_response = client.chat(parameters: {
+      client = OpenAI::Client.new
+      eval_response = client.chat.completions.create(
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: "You are an interview evaluator. Score answers from 1 to 5. Return only the number." },
-          { role: "user", content: <<~PROMPT }
+          { role: :system, content: "You are an interview evaluator. Return only an integer from 1 to 5." },
+          { role: :user, content: <<~PROMPT }
             Evaluate the following interview answer transcript for quality, relevance, structure, and clarity.
             Return only an integer score between 1 and 5.
 
@@ -52,9 +70,17 @@ class ProcessAnswerJob < ApplicationJob
           PROMPT
         ],
         temperature: 0
-      })
+      )
 
-      content = eval_response.dig("choices", 0, "message", "content").to_s.strip
+      choices = eval_response.respond_to?(:choices) ? eval_response.choices : eval_response.to_h[:choices]
+      message = choices&.first&.message
+      content = if message.respond_to?(:content)
+        message.content.to_s
+      elsif message.is_a?(Hash)
+        message[:content].to_s
+      else
+        choices&.first&.to_s || ""
+      end
       numeric_score = content[/\d+/].to_i.clamp(1, 5)
       answer.update!(score: numeric_score, status: "completed")
       Rails.logger.info("Answer ##{answer.id} scored: #{numeric_score}")
