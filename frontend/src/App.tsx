@@ -1,19 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
-type Question = { id: string; text: string }
+type Question = { id: number; text: string; prompt: string; order: number; active: boolean }
 
 const RECORDING_DURATION_SECONDS = 60
 
-const QUESTIONS: Question[] = [
-  { id: 'q1', text: 'Tell us about yourself' },
-  { id: 'q2', text: "What's your greatest achievement?" },
-  { id: 'q3', text: 'Where do you see yourself in 5 years?' },
-  { id: 'q4', text: 'Why do you want to work with us?' },
-  { id: 'q5', text: 'How do you handle working under pressure?' },
-]
-
 function App() {
+  const [questions, setQuestions] = useState<Question[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [recorder, setRecorder] = useState<MediaRecorder | null>(null)
@@ -21,14 +14,32 @@ function App() {
   const [timeLeft, setTimeLeft] = useState(RECORDING_DURATION_SECONDS)
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [loadingQuestions, setLoadingQuestions] = useState(true)
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const timerRef = useRef<number | null>(null)
   const stopButtonRef = useRef<HTMLButtonElement | null>(null)
 
-  const question = QUESTIONS[currentIndex]
   const location = useLocation()
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
+  // Load questions from backend
+  useEffect(() => {
+    const loadQuestions = async () => {
+      try {
+        const res = await fetch(`${apiUrl}/api/questions`)
+        if (!res.ok) throw new Error('Failed to load questions')
+        const data = await res.json()
+        setQuestions(data)
+      } catch (e: any) {
+        setError('Failed to load interview questions. Please try refreshing the page.')
+      } finally {
+        setLoadingQuestions(false)
+      }
+    }
+    loadQuestions()
+  }, [apiUrl])
 
   useEffect(() => {
     return () => {
@@ -118,23 +129,54 @@ function App() {
 
     const form = new FormData()
     form.append('video', file)
-    form.append('questionId', question.id)
+    form.append('questionId', currentQuestion.id.toString())
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
       const resp = await fetch(`${apiUrl}/api/answers`, {
         method: 'POST',
         body: form,
       })
       if (!resp.ok) throw new Error('Upload failed')
       // Advance to next question automatically
-      setCurrentIndex(prev => Math.min(prev + 1, QUESTIONS.length - 1))
+      setCurrentIndex(prev => Math.min(prev + 1, questions.length - 1))
       setTimeLeft(RECORDING_DURATION_SECONDS)
     } catch (e: any) {
       setError('Upload failed. Please try again.')
     } finally {
       setUploading(false)
     }
+  }
+
+  // Get current question
+  const currentQuestion = questions[currentIndex] || { id: 0, text: 'Loading...', prompt: '', order: 0, active: true }
+
+  // Show loading state while questions are being loaded
+  if (loadingQuestions) {
+    return (
+      <div className="card" style={{ maxWidth: 800, margin: '3rem auto', textAlign: 'center' }}>
+        <div className="loading">
+          <div className="spinner"></div>
+          Loading interview questions...
+        </div>
+      </div>
+    )
+  }
+
+  // Show error if questions failed to load
+  if (questions.length === 0) {
+    return (
+      <div className="card" style={{ maxWidth: 800, margin: '3rem auto', textAlign: 'center' }}>
+        <h1>⚠️ No Interview Questions Available</h1>
+        <p style={{ fontSize: '1.1rem', marginBottom: '2rem' }}>
+          No interview questions have been configured yet. Please contact your administrator to set up the interview questions.
+        </p>
+        <Link to="/questions">
+          <button className="secondary" style={{ fontSize: '1.1rem', padding: '16px 32px' }}>
+            📝 Manage Questions
+          </button>
+        </Link>
+      </div>
+    )
   }
 
   // Initial screen until camera/mic is enabled
@@ -180,7 +222,7 @@ function App() {
               <div>
                 <h4 style={{ margin: '0 0 0.5rem 0', color: '#2d3748' }}>Record Answers</h4>
                 <p style={{ margin: 0, fontSize: '0.95rem', color: '#4a5568' }}>
-                  Answer 5 interview questions with 60-second video recordings
+                  Answer {questions.length} interview questions with 60-second video recordings
                 </p>
               </div>
             </div>
@@ -285,6 +327,9 @@ function App() {
             <Link to="/answers" className={location.pathname === '/answers' ? 'active' : ''}>
               View Answers
             </Link>
+            <Link to="/questions" className={location.pathname === '/questions' ? 'active' : ''}>
+              Manage Questions
+            </Link>
           </div>
         </div>
       </nav>
@@ -293,7 +338,7 @@ function App() {
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <h1>Video Interview</h1>
           <p style={{ fontSize: '1.1rem', color: '#666' }}>
-            Question {currentIndex + 1} of {QUESTIONS.length}
+            Question {currentIndex + 1} of {questions.length}
           </p>
         </div>
 
@@ -312,7 +357,7 @@ function App() {
             lineHeight: '1.5',
             textAlign: 'center'
           }}>
-            {question.text}
+            {currentQuestion.text}
           </p>
         </div>
 

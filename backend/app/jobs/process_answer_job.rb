@@ -54,16 +54,20 @@ class ProcessAnswerJob < ApplicationJob
 
     answer.update!(transcript: transcript_text)
 
-    # Evaluate with GPT to get a score 1-5
+    # Evaluate with GPT to get a score 1-5 using custom prompt
     begin
       client = OpenAI::Client.new
+      
+      # Find the question to get the custom evaluation prompt
+      question = Question.find_by(id: answer.question_id)
+      evaluation_prompt = question&.prompt || "Evaluate the following interview answer transcript for quality, relevance, structure, and clarity. Return only an integer score between 1 and 5."
+      
       eval_response = client.chat.completions.create(
         model: "gpt-4o-mini",
         messages: [
           { role: :system, content: "You are an interview evaluator. Return only an integer from 1 to 5." },
           { role: :user, content: <<~PROMPT }
-            Evaluate the following interview answer transcript for quality, relevance, structure, and clarity.
-            Return only an integer score between 1 and 5.
+            #{evaluation_prompt}
 
             Transcript:
             #{transcript_text}
