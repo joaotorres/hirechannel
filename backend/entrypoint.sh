@@ -13,5 +13,8 @@ bundle exec rails db:create
 # Run database migrations
 bundle exec rails db:migrate
 
+# Run database seeds
+bundle exec rails db:seed
+
 # Then exec the container's main process (what's set as CMD in the Dockerfile).
 exec "$@"
