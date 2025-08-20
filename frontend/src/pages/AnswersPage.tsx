@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 
 type Answer = {
   id: number
@@ -13,6 +14,7 @@ export default function AnswersPage() {
   const [answers, setAnswers] = useState<Answer[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const location = useLocation()
 
   useEffect(() => {
     const load = async () => {
@@ -31,57 +33,122 @@ export default function AnswersPage() {
     void load()
   }, [])
 
+  const getStatusBadge = (status: string) => {
+    return <span className={`status ${status}`}>{status}</span>
+  }
+
+  const getScoreDisplay = (score: number | null) => {
+    if (score === null) return '-'
+    return (
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '8px',
+        fontWeight: '600',
+        color: score >= 4 ? '#38a169' : score >= 3 ? '#d69e2e' : '#e53e3e'
+      }}>
+        <span style={{ fontSize: '1.2rem' }}>
+          {score === 5 ? '⭐⭐⭐⭐⭐' : 
+           score === 4 ? '⭐⭐⭐⭐' : 
+           score === 3 ? '⭐⭐⭐' : 
+           score === 2 ? '⭐⭐' : '⭐'}
+        </span>
+        {score}/5
+      </div>
+    )
+  }
+
   return (
-    <div style={{ maxWidth: 900, margin: '2rem auto', fontFamily: 'Inter, system-ui, Arial' }}>
-      <h1 style={{ marginBottom: 8 }}>Submitted Answers</h1>
-      <p style={{ color: '#555', marginTop: 0 }}>
-        Listing all answers with submission time, question id, transcript and score.
-      </p>
+    <>
+      <nav className="nav">
+        <div className="nav-content">
+          <h2 style={{ margin: 0, fontSize: '1.5rem' }}>🎥 Hirechannel</h2>
+          <div className="nav-links">
+            <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
+              Record Interview
+            </Link>
+            <Link to="/answers" className={location.pathname === '/answers' ? 'active' : ''}>
+              View Answers
+            </Link>
+          </div>
+        </div>
+      </nav>
 
-      {loading && <div>Loading…</div>}
-      {error && <div style={{ color: '#c0392b' }}>{error}</div>}
+      <div className="card" style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <h1>📋 Submitted Answers</h1>
+          <p style={{ fontSize: '1.1rem', color: '#666' }}>
+            All recorded answers with AI analysis and scoring
+          </p>
+        </div>
 
-      {!loading && !error && (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={th}>ID</th>
-              <th style={th}>Submitted</th>
-              <th style={th}>Question</th>
-              <th style={th}>Status</th>
-              <th style={th}>Score</th>
-              <th style={th}>Transcript</th>
-            </tr>
-          </thead>
-          <tbody>
-            {answers.map(a => (
-              <tr key={a.id}>
-                <td style={td}>{a.id}</td>
-                <td style={td}>{new Date(a.created_at).toLocaleString()}</td>
-                <td style={td}>{a.question_id}</td>
-                <td style={td}>{a.status}</td>
-                <td style={td}>{a.score ?? '-'}</td>
-                <td style={{ ...td, maxWidth: 380, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={a.transcript || ''}>
-                  {a.transcript || ''}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  )}
+        {loading && (
+          <div className="loading">
+            <div className="spinner"></div>
+            Loading answers...
+          </div>
+        )}
 
-const th: React.CSSProperties = {
-  textAlign: 'left',
-  borderBottom: '1px solid #ddd',
-  padding: '8px 6px',
-}
+        {error && <div className="error">{error}</div>}
 
-const td: React.CSSProperties = {
-  borderBottom: '1px solid #eee',
-  padding: '8px 6px',
-  verticalAlign: 'top',
+        {!loading && !error && answers.length === 0 && (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '3rem', 
+            color: '#666',
+            background: '#f8fafc',
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0'
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📝</div>
+            <h3 style={{ margin: '0 0 0.5rem 0' }}>No answers yet</h3>
+            <p style={{ margin: 0 }}>Start recording your interview answers to see them here.</p>
+            <Link to="/" style={{ display: 'inline-block', marginTop: '1rem' }}>
+              <button className="secondary">Start Recording</button>
+            </Link>
+          </div>
+        )}
+
+        {!loading && !error && answers.length > 0 && (
+          <div style={{ overflowX: 'auto' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Submitted</th>
+                  <th>Question</th>
+                  <th>Status</th>
+                  <th>Score</th>
+                  <th>Transcript</th>
+                </tr>
+              </thead>
+              <tbody>
+                {answers.map(a => (
+                  <tr key={a.id}>
+                    <td style={{ fontWeight: '600', color: '#667eea' }}>#{a.id}</td>
+                    <td>{new Date(a.created_at).toLocaleString()}</td>
+                    <td style={{ fontWeight: '500' }}>{a.question_id}</td>
+                    <td>{getStatusBadge(a.status)}</td>
+                    <td>{getScoreDisplay(a.score)}</td>
+                    <td style={{ 
+                      maxWidth: 300, 
+                      whiteSpace: 'nowrap', 
+                      overflow: 'hidden', 
+                      textOverflow: 'ellipsis',
+                      color: a.transcript ? '#2d3748' : '#a0aec0'
+                    }} 
+                    title={a.transcript || 'No transcript available'}>
+                      {a.transcript || 'Processing...'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  )
 }
 
 

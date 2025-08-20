@@ -1,12 +1,12 @@
 ## Hirechannel Video Interview – React + Rails
 
 ### Overview
-This project is a simplified video interview system:
-- React frontend lets candidates record answers (camera/mic permissions, start/stop, 60s countdown auto-stop) and uploads videos.
-- Ruby on Rails API receives uploads, stores them via Active Storage, and enqueues background jobs.
-- Sidekiq processes each answer asynchronously: extracts audio (ffmpeg), transcribes with OpenAI Whisper, evaluates with an LLM, and stores the transcript and a score (1–5).
-
-A simple Answers page lists submissions with time, question id, status, transcript, and score.
+This project is a modern, AI-powered video interview system:
+- **React frontend** with a beautiful, responsive UI for recording video answers (camera/mic permissions, start/stop controls, 60s countdown auto-stop)
+- **Ruby on Rails API** that receives uploads, stores them via Active Storage, and enqueues background jobs
+- **Sidekiq** processes each answer asynchronously: extracts audio (ffmpeg), transcribes with OpenAI Whisper, evaluates with an LLM, and stores the transcript and a score (1–5)
+- **Modern UI** with navigation, status badges, loading states, and responsive design
+- **Answers dashboard** with a clean table view showing submission time, question ID, status, transcript, and AI-generated score
 
 ### Key Design Decisions
 - **Async processing (Sidekiq + Redis)**: keeps uploads fast and resilient; transcription/evaluation run outside the request.
