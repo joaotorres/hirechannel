@@ -46,3 +46,18 @@ if Question.count == 0
 else
   puts "Questions already exist, skipping seed data"
 end
+
+# Create default job description if none exist or if no active ones exist
+if JobDescription.count == 0 || JobDescription.where(active: true).count == 0
+  # Deactivate any existing job descriptions first
+  JobDescription.update_all(active: false) if JobDescription.count > 0
+  
+  JobDescription.create!(
+    title: "Software Engineer",
+    description: "We are looking for a talented Software Engineer to join our dynamic team. The ideal candidate should have strong programming skills, experience with modern web technologies, and a passion for creating high-quality software solutions. Responsibilities include developing new features, maintaining existing code, collaborating with cross-functional teams, and contributing to technical architecture decisions. We value creativity, problem-solving abilities, and a commitment to continuous learning.",
+    active: true
+  )
+  puts "Created default job description"
+else
+  puts "Active job description already exists, skipping seed data"
+end

@@ -62,12 +62,26 @@ class ProcessAnswerJob < ApplicationJob
       question = Question.find_by(id: answer.question_id)
       evaluation_prompt = question&.prompt || "Evaluate the following interview answer transcript for quality, relevance, structure, and clarity. Return only an integer score between 1 and 5."
       
+      # Get the current job description to provide context
+      job_description = JobDescription.current
+      job_context = ""
+      if job_description
+        job_context = <<~CONTEXT
+          Job Context:
+          Position: #{job_description.title}
+          Description: #{job_description.description}
+          
+          Please consider this job context when evaluating the candidate's response.
+          
+        CONTEXT
+      end
+      
       eval_response = client.chat.completions.create(
         model: "gpt-4o-mini",
         messages: [
           { role: :system, content: "You are an interview evaluator. Return only an integer from 1 to 5." },
           { role: :user, content: <<~PROMPT }
-            #{evaluation_prompt}
+            #{job_context}#{evaluation_prompt}
 
             Transcript:
             #{transcript_text}

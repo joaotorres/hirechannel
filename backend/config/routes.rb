@@ -2,6 +2,8 @@ Rails.application.routes.draw do
   namespace :api do
     resources :questions, only: [:index, :show, :create, :update, :destroy]
     resources :answers, only: [:create, :index, :show]
+    get 'job_descriptions/current', to: 'job_descriptions#current'
+    resources :job_descriptions, only: [:index, :show, :create, :update, :destroy]
   end
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
