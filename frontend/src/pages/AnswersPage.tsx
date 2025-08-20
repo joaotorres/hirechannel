@@ -70,6 +70,9 @@ export default function AnswersPage() {
             <Link to="/answers" className={location.pathname === '/answers' ? 'active' : ''}>
               View Answers
             </Link>
+            <Link to="/questions" className={location.pathname === '/questions' ? 'active' : ''}>
+              Manage Questions
+            </Link>
           </div>
         </div>
       </nav>
