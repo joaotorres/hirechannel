@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
 type Question = { id: number; text: string; prompt: string; order: number; active: boolean }
+type JobDescription = { id: number; title: string; description: string; active: boolean; created_at: string }
 
 const RECORDING_DURATION_SECONDS = 60
 
 function App() {
   const [questions, setQuestions] = useState<Question[]>([])
+  const [jobDescription, setJobDescription] = useState<JobDescription | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [recorder, setRecorder] = useState<MediaRecorder | null>(null)
@@ -24,21 +26,29 @@ function App() {
   const location = useLocation()
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
-  // Load questions from backend
+  // Load questions and job description from backend
   useEffect(() => {
-    const loadQuestions = async () => {
+    const loadData = async () => {
       try {
-        const res = await fetch(`${apiUrl}/api/questions`)
-        if (!res.ok) throw new Error('Failed to load questions')
-        const data = await res.json()
-        setQuestions(data)
+        // Load questions
+        const questionsRes = await fetch(`${apiUrl}/api/questions`)
+        if (!questionsRes.ok) throw new Error('Failed to load questions')
+        const questionsData = await questionsRes.json()
+        setQuestions(questionsData)
+
+        // Load job description
+        const jobRes = await fetch(`${apiUrl}/api/job_descriptions/current`)
+        if (jobRes.ok) {
+          const jobData = await jobRes.json()
+          setJobDescription(jobData)
+        }
       } catch (e: any) {
-        setError('Failed to load interview questions. Please try refreshing the page.')
+        setError('Failed to load interview data. Please try refreshing the page.')
       } finally {
         setLoadingQuestions(false)
       }
     }
-    loadQuestions()
+    loadData()
   }, [apiUrl])
 
   useEffect(() => {
@@ -337,6 +347,12 @@ function App() {
       <div className="card" style={{ maxWidth: 800, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <h1>Video Interview</h1>
+          {jobDescription && (
+            <p style={{ fontSize: '1.1rem', color: '#4a5568', margin: '0.25rem 0 0.5rem' }}>
+              <span style={{ fontWeight: 600, color: '#2d3748' }}>Job title:</span>{' '}
+              <span style={{ fontWeight: 600 }}>{jobDescription.title}</span>
+            </p>
+          )}
           <p style={{ fontSize: '1.1rem', color: '#666' }}>
             Question {currentIndex + 1} of {questions.length}
           </p>
