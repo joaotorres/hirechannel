@@ -33,6 +33,7 @@ VITE_API_URL=http://localhost:3000
 
 2. **Access the application:**
    - Frontend: http://localhost:5173
+   - List of submitted answers: http://localhost:5173/answers
    - Backend API: http://localhost:3000
    - Sidekiq Dashboard: http://localhost:3000/sidekiq
    - Redis: localhost:6379

@@ -42,3 +42,8 @@ node_modules/
 
 # Yarn Integrity file
 .yarn-integrity
+
+# Redis
+dump.rdb
+*.rdb
+redis-data/
